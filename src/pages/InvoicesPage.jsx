@@ -41,32 +41,23 @@ export function InvoicesPage() {
     formData.append('file', file);
 
     try {
-      // Send uploaded invoice file directly to the SNS Webhook URL
-      const response = await fetch(WEBHOOK_URL, {
+      // Upload file to FastAPI backend /uploadInvoice endpoint (which forwards to Webhook & saves in MySQL)
+      const response = await fetch(`${API_BASE_URL}/uploadInvoice`, {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error(`Webhook returned status ${response.status}`);
+        throw new Error(`Server returned status ${response.status}`);
       }
 
-      const data = await response.json();
-
-      // Pass extracted webhook data to addInvoice (which triggers /reconcile and /saveInvoice on FastAPI)
-      await addInvoice({
-        id: data.invoice_number || data.invoiceNumber || data.id || `INV-${Date.now().toString().slice(-4)}`,
-        vendor: data.vendor || data.vendor_name || data.vendorName || "Unknown Vendor",
-        date: data.date || data.invoice_date || data.invoiceDate || new Date().toISOString().split('T')[0],
-        amount: data.amount || data.total_amount || data.total || "$0.00",
-        gst: data.gst || data.tax_amount || data.tax || "$0.00",
-        confidence: data.confidence ? (data.confidence <= 1 ? Math.round(data.confidence * 100) : data.confidence) : 95,
-        glAccount: data.gl_account || data.glAccount || "Office Expenses",
-        fieldConfidence: data.fieldConfidence
-      });
+      const resData = await response.json();
+      if (resData && resData.invoice) {
+        addInvoice(resData.invoice);
+      }
     } catch (err) {
-      console.error("Webhook upload error:", err);
-      setUploadError(`Failed to connect to Webhook URL (${WEBHOOK_URL}): ${err.message}`);
+      console.error("Upload error:", err);
+      setUploadError(`Failed to upload invoice: ${err.message}`);
     } finally {
       setIsUploading(false);
     }
