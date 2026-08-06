@@ -7,7 +7,7 @@ import { Upload, Eye, Edit, Trash2, Download, Search, CheckCircle, AlertTriangle
 import { Input } from "../components/ui/Input";
 import { cn } from "../utils/cn";
 import { useGlobalState } from "../context/GlobalStateContext";
-import { WEBHOOK_URL } from "../config";
+import { WEBHOOK_URL, API_BASE_URL } from "../config";
 import Loader from "../components/Loader";
 
 export function InvoicesPage() {
