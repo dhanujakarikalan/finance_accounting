@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Card, CardContent } from "../components/ui/Card";
+import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Send, Mic, Sparkles, MessageSquare } from "lucide-react";
 import { cn } from "../utils/cn";
+import { API_BASE_URL } from "../config";
 
 const suggestedQuestions = [
   "How much did I spend this month?",
@@ -15,27 +16,43 @@ const suggestedQuestions = [
 
 export function CopilotPage() {
   const [messages, setMessages] = useState([
-    { id: 1, role: "assistant", content: "Hello! I'm your AI Finance Copilot. How can I help you with your business finances today?" }
+    { id: 1, role: "assistant", content: "Hello! I'm your AI Finance Copilot connected live to your MySQL database. How can I help you today?" }
   ]);
   const [input, setInput] = useState("");
 
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
     
-    // Add user message
-    const userMsg = { id: Date.now(), role: "user", content: input };
+    const userQuestion = input.trim();
+    const userMsg = { id: Date.now(), role: "user", content: userQuestion };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
     
-    // Simulate AI response
-    setTimeout(() => {
-      setMessages(prev => [...prev, { 
-        id: Date.now(), 
-        role: "assistant", 
-        content: "I've analyzed your data. Based on the current trends, you spent $12,304.50 this month, which is 4.1% higher than last month. The increase is primarily driven by a 12% rise in marketing expenses." 
+    try {
+      const res = await fetch(`${API_BASE_URL}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: userQuestion })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          role: "assistant",
+          content: data.answer || "I have analyzed your invoice database."
+        }]);
+      } else {
+        throw new Error(`HTTP ${res.status}`);
+      }
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        role: "assistant",
+        content: `Error connecting to backend API: ${err.message}. Please ensure the FastAPI server is running on port 8000.`
       }]);
-    }, 1000);
+    }
   };
 
   const handleSuggest = (q) => {

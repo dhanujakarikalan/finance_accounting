@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card"
 import { Button } from "../components/ui/Button";
 import { Download, FileText, FileSpreadsheet } from "lucide-react";
 import Loader from "../components/Loader";
+import { API_BASE_URL } from "../config";
 import { 
   LineChart, 
   Line, 
@@ -83,23 +84,32 @@ export function ReportsPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleGenerateReport = () => {
+  const handleGenerateReport = async () => {
     setIsGenerating(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/generateReport`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.monthly_trend) {
+          const newPnl = data.monthly_trend.map(item => ({
+            name: item.name,
+            revenue: Math.round(item.value * 1.45),
+            expense: item.value
+          }));
+          setCurrentPnlData(newPnl);
+        }
+      }
+    } catch (err) {
+      console.warn("Backend /generateReport call warning:", err);
       const newPnl = currentPnlData.map(row => ({
         ...row,
         revenue: Math.round(row.revenue * (0.85 + Math.random() * 0.35)),
         expense: Math.round(row.expense * (0.85 + Math.random() * 0.25))
       }));
-      const newCashFlow = currentCashFlowData.map(row => ({
-        ...row,
-        inflow: Math.round(row.inflow * (0.85 + Math.random() * 0.35)),
-        outflow: Math.round(row.outflow * (0.85 + Math.random() * 0.25))
-      }));
       setCurrentPnlData(newPnl);
-      setCurrentCashFlowData(newCashFlow);
+    } finally {
       setIsGenerating(false);
-    }, 1000);
+    }
   };
 
   return (

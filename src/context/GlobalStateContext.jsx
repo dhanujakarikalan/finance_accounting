@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { API_BASE_URL } from '../config';
 
 const GlobalStateContext = createContext();
 
@@ -37,33 +38,80 @@ export const GlobalStateProvider = ({ children }) => {
     { id: "TXN-003", date: "2024-05-20", description: "Office Supplies Inc", amount: "-$125.50", matchedId: null },
   ]);
 
+  const [backendStatus, setBackendStatus] = useState({ online: true, error: null });
+
+  // Fetch real invoices from FastAPI backend MySQL database
+  const fetchInvoicesFromBackend = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/getInvoices`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data) && data.length > 0) {
+          setInvoices(data);
+        }
+        setBackendStatus({ online: true, error: null });
+      } else {
+        setBackendStatus({ online: false, error: `Server error: ${res.status}` });
+      }
+    } catch (err) {
+      console.warn("Backend API offline or unreachable, using local fallback:", err.message);
+      setBackendStatus({ online: false, error: "Backend API offline (FastAPI on port 8000)" });
+    }
+  };
+
+  useEffect(() => {
+    fetchInvoicesFromBackend();
+  }, []);
+
   // --- ACTIONS ---
 
-  const approveInvoice = (invoiceId, updatedData) => {
-    // 1. Update the invoice status
+  const approveInvoice = async (invoiceId, updatedData) => {
+    const dataToUse = updatedData || invoices.find(inv => inv.id === invoiceId) || {};
+
+    // 1. Update MySQL backend
+    try {
+      await fetch(`${API_BASE_URL}/updateInvoice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: dataToUse.db_id,
+          invoiceNumber: invoiceId,
+          vendor: dataToUse.vendor || dataToUse.vendor_name,
+          date: dataToUse.date || dataToUse.invoice_date,
+          amount: dataToUse.amount || dataToUse.total,
+          gst: dataToUse.gst || dataToUse.tax,
+          status: "Manual Approved",
+          approval: true
+        })
+      });
+    } catch (e) {
+      console.warn("Backend updateInvoice call warning:", e);
+    }
+
+    // 2. Update local state
     setInvoices(prev => prev.map(inv => 
       inv.id === invoiceId ? { ...inv, ...updatedData, status: "Manual Approved", confidence: 100 } : inv
     ));
 
     const approvedInv = invoices.find(inv => inv.id === invoiceId);
     if (!approvedInv) return;
-    const dataToUse = updatedData || approvedInv;
+    const finalData = updatedData || approvedInv;
 
-    // 2. Create Journal Entry
+    // 3. Create Journal Entry
     const newJeId = `JE-${Date.now().toString().slice(-4)}`;
     const newEntries = [
-      { id: newJeId, date: dataToUse.date, description: `Invoice: ${dataToUse.vendor}`, account: dataToUse.glAccount, debit: dataToUse.amount, credit: "-", status: "Posted" },
-      { id: newJeId, date: dataToUse.date, description: `Invoice: ${dataToUse.vendor}`, account: "Accounts Payable", debit: "-", credit: dataToUse.amount, status: "Posted" },
+      { id: newJeId, date: finalData.date, description: `Invoice: ${finalData.vendor}`, account: finalData.glAccount || "Office Expenses", debit: finalData.amount, credit: "-", status: "Posted" },
+      { id: newJeId, date: finalData.date, description: `Invoice: ${finalData.vendor}`, account: "Accounts Payable", debit: "-", credit: finalData.amount, status: "Posted" },
     ];
     setLedgerEntries(prev => [...newEntries, ...prev]);
 
-    // 3. Schedule Payment
+    // 4. Schedule Payment
     const newPayment = {
       id: `PAY-${Date.now().toString().slice(-3)}`,
       type: "outbound",
-      entity: dataToUse.vendor,
-      amount: dataToUse.amount,
-      dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 15 days from now
+      entity: finalData.vendor,
+      amount: finalData.amount,
+      dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       status: "Scheduled"
     };
     setPayments(prev => [...prev, newPayment]);
@@ -73,28 +121,27 @@ export const GlobalStateProvider = ({ children }) => {
     setBankFeed(prev => prev.map((txn, idx) => {
       if (idx === 0) return { ...txn, matchedId: "JE-1002", matchConfidence: 99 };
       if (idx === 1) return { ...txn, matchedId: "JE-1004", matchConfidence: 95 };
-      if (idx === 2) return { ...txn, matchedId: "JE-1005", matchConfidence: 75 }; // Variance
+      if (idx === 2) return { ...txn, matchedId: "JE-1005", matchConfidence: 75 };
       return txn;
     }));
 
     setLedgerEntries(prev => prev.map((je, idx) => {
-      // Very naive matching for prototype
       if (je.id === "JE-1002" || je.id === "JE-1004") return { ...je, status: "Reconciled" };
       if (je.id === "JE-1005") return { ...je, status: "Variance" };
       return je;
     }));
   };
 
-  const addInvoice = (invoiceData) => {
+  const addInvoice = async (invoiceData) => {
     const confidence = invoiceData.confidence || Math.round(Math.random() * 20 + 80);
-    const status = confidence >= 85 ? "Auto-Approved" : "Review Needed";
+    let status = confidence >= 85 ? "Auto-Approved" : "Review Needed";
     
     const newInvoice = {
-      id: invoiceData.id || `INV-${Date.now().toString().slice(-4)}`,
-      vendor: invoiceData.vendor || "Unknown Vendor",
-      date: invoiceData.date || new Date().toISOString().split('T')[0],
-      amount: invoiceData.amount || "$0.00",
-      gst: invoiceData.gst || "$0.00",
+      id: invoiceData.id || invoiceData.invoice_number || `INV-${Date.now().toString().slice(-4)}`,
+      vendor: invoiceData.vendor || invoiceData.vendor_name || "Unknown Vendor",
+      date: invoiceData.date || invoiceData.invoice_date || new Date().toISOString().split('T')[0],
+      amount: invoiceData.amount || (invoiceData.total ? `$${invoiceData.total}` : "$0.00"),
+      gst: invoiceData.gst || (invoiceData.tax ? `$${invoiceData.tax}` : "$0.00"),
       status: status,
       confidence: confidence,
       glAccount: invoiceData.glAccount || "Unassigned",
@@ -106,6 +153,53 @@ export const GlobalStateProvider = ({ children }) => {
         glAccount: confidence - 8
       }
     };
+
+    // 1. Reconciliation duplicate check with FastAPI /reconcile
+    try {
+      const recRes = await fetch(`${API_BASE_URL}/reconcile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vendor: newInvoice.vendor,
+          invoiceNumber: newInvoice.id,
+          amount: newInvoice.amount
+        })
+      });
+      if (recRes.ok) {
+        const recData = await recRes.json();
+        if (!recData.approved) {
+          status = "Review Needed";
+          newInvoice.status = "Review Needed";
+          newInvoice.duplicateReason = recData.reason;
+        }
+      }
+    } catch (e) {
+      console.warn("Backend /reconcile warning:", e);
+    }
+
+    // 2. Save into MySQL via FastAPI /saveInvoice
+    try {
+      const numAmount = parseFloat(String(newInvoice.amount).replace(/[^0-9.-]+/g, "")) || 0;
+      const numGst = parseFloat(String(newInvoice.gst).replace(/[^0-9.-]+/g, "")) || 0;
+      await fetch(`${API_BASE_URL}/saveInvoice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vendor_name: newInvoice.vendor,
+          invoice_number: newInvoice.id,
+          invoice_date: newInvoice.date,
+          gst_number: newInvoice.gst,
+          currency: "USD",
+          subtotal: numAmount - numGst,
+          tax: numGst,
+          total: numAmount,
+          status: status,
+          approval: status === "Auto-Approved"
+        })
+      });
+    } catch (e) {
+      console.warn("Backend /saveInvoice warning:", e);
+    }
 
     setInvoices(prev => [newInvoice, ...prev]);
 
@@ -182,6 +276,8 @@ export const GlobalStateProvider = ({ children }) => {
       ledgerEntries,
       payments,
       bankFeed,
+      backendStatus,
+      fetchInvoicesFromBackend,
       approveInvoice,
       autoMatchBankFeed,
       addInvoice,
