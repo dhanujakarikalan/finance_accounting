@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #2563EB;
+  --color-secondary: #10B981;
+  --color-accent: #7C3AED;
+  --color-sidebar: #1E293B;
+  --color-background: #F8FAFC;
+  --color-card: #FFFFFF;
+  --shadow-subtle: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.dark {
+  --color-background: #0F172A;
+  --color-card: #1E293B;
+  --color-sidebar: #0F172A;
+  color-scheme: dark;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-slate-800 font-sans antialiased selection:bg-primary/20 selection:text-primary dark:text-slate-100;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-subtle;
+  }
+  
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+  }
+}
+
+/* Dark Mode Global Styles */
+.dark body {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+.dark .bg-white,
+.dark .bg-slate-50,
+.dark .bg-gray-50 {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+.dark header {
+  background-color: rgba(30, 41, 59, 0.8) !important;
+  border-color: #334155 !important;
+}
+
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700,
+.dark .text-gray-800,
+.dark .text-gray-900 {
+  color: #f8fafc !important;
+}
+
+.dark .text-slate-600,
+.dark .text-slate-500,
+.dark .text-gray-600,
+.dark .text-gray-500 {
+  color: #94a3b8 !important;
+}
+
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-gray-200,
+.dark .border-gray-300 {
+  border-color: #334155 !important;
+}
+
+.dark select,
+.dark input {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+  border-color: #475569 !important;
+}
+
+.dark table thead {
+  background-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+.dark tr {
+  border-color: #334155 !important;
+}
