@@ -37,49 +37,36 @@ export function InvoicesPage() {
     setIsUploading(true);
     setUploadError(null);
 
-    let extractedData = null;
     const formData = new FormData();
     formData.append('file', file);
 
     try {
+      // Send uploaded invoice file directly to the SNS Webhook URL
       const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
         body: formData,
       });
-      if (response.ok) {
-        extractedData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(`Webhook returned status ${response.status}`);
       }
-    } catch (err) {
-      console.warn("SNS Webhook unreachable, using direct processing fallback:", err.message);
-    }
 
-    // Fallback if webhook returns error or fails to respond
-    if (!extractedData) {
-      const fileNameClean = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
-      extractedData = {
-        invoice_number: `INV-${Math.floor(1000 + Math.random() * 9000)}`,
-        vendor_name: fileNameClean || "New Vendor",
-        date: new Date().toISOString().split('T')[0],
-        amount: `$${(Math.random() * 500 + 50).toFixed(2)}`,
-        gst: `$${(Math.random() * 50 + 5).toFixed(2)}`,
-        confidence: 88,
-        gl_account: "Office Expenses"
-      };
-    }
+      const data = await response.json();
 
-    try {
+      // Pass extracted webhook data to addInvoice (which triggers /reconcile and /saveInvoice on FastAPI)
       await addInvoice({
-        id: extractedData.invoice_number || extractedData.invoiceNumber || extractedData.id || `INV-${Date.now().toString().slice(-4)}`,
-        vendor: extractedData.vendor || extractedData.vendor_name || "Unknown Vendor",
-        date: extractedData.date || extractedData.invoice_date || new Date().toISOString().split('T')[0],
-        amount: extractedData.amount || extractedData.total_amount || "$0.00",
-        gst: extractedData.gst || extractedData.tax_amount || "$0.00",
-        confidence: extractedData.confidence ? (extractedData.confidence <= 1 ? Math.round(extractedData.confidence * 100) : extractedData.confidence) : 88,
-        glAccount: extractedData.gl_account || extractedData.glAccount || "Office Expenses"
+        id: data.invoice_number || data.invoiceNumber || data.id || `INV-${Date.now().toString().slice(-4)}`,
+        vendor: data.vendor || data.vendor_name || data.vendorName || "Unknown Vendor",
+        date: data.date || data.invoice_date || data.invoiceDate || new Date().toISOString().split('T')[0],
+        amount: data.amount || data.total_amount || data.total || "$0.00",
+        gst: data.gst || data.tax_amount || data.tax || "$0.00",
+        confidence: data.confidence ? (data.confidence <= 1 ? Math.round(data.confidence * 100) : data.confidence) : 95,
+        glAccount: data.gl_account || data.glAccount || "Office Expenses",
+        fieldConfidence: data.fieldConfidence
       });
     } catch (err) {
-      console.error("Upload error:", err);
-      setUploadError(err.message || "Failed to upload and process invoice");
+      console.error("Webhook upload error:", err);
+      setUploadError(`Failed to connect to Webhook URL (${WEBHOOK_URL}): ${err.message}`);
     } finally {
       setIsUploading(false);
     }
