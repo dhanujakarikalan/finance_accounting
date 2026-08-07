@@ -187,8 +187,8 @@ export function InvoicesPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredInvoices.map((invoice) => (
-                <tr key={invoice.id} className="bg-white border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+              {filteredInvoices.map((invoice, idx) => (
+                <tr key={invoice.db_id ? `db-${invoice.db_id}` : `${invoice.id}-${idx}`} className="bg-white border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4 font-medium text-slate-900">{invoice.id}</td>
                   <td className="px-6 py-4">{invoice.vendor}</td>
                   <td className="px-6 py-4">{invoice.date}</td>
