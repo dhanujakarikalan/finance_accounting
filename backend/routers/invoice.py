@@ -7,18 +7,22 @@ from database import get_db
 
 router = APIRouter()
 
-PRIMARY_WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://api.agents.snsihub.ai/webhook/b80bf861-476f-405f-9e85-3d7da5fda821")
-TEST_WEBHOOK_URL = "https://api.agents.snsihub.ai/webhook-test/b80bf861-476f-405f-9e85-3d7da5fda821"
+PRIMARY_WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://api.agents.snsihub.ai/webhook-test/b80bf861-476f-405f-9e85-3d7da5fda821")
+TEST_WEBHOOK_URL = "https://api.agents.snsihub.ai/webhook/b80bf861-476f-405f-9e85-3d7da5fda821"
 
 @router.post("/uploadInvoice")
 async def upload_invoice(file: UploadFile = File(...), db: Session = Depends(get_db)):
     contents = await file.read()
     extracted = None
 
-    # Attempt forwarding via httpx to primary webhook URL first, then test webhook URL
-    urls_to_try = [PRIMARY_WEBHOOK_URL, TEST_WEBHOOK_URL] if PRIMARY_WEBHOOK_URL != TEST_WEBHOOK_URL else [PRIMARY_WEBHOOK_URL, TEST_WEBHOOK_URL]
+    # Try test webhook URL first (matching active draft builder), then production webhook URL
+    urls_to_try = [
+        "https://api.agents.snsihub.ai/webhook-test/b80bf861-476f-405f-9e85-3d7da5fda821",
+        "https://api.agents.snsihub.ai/webhook/b80bf861-476f-405f-9e85-3d7da5fda821",
+        PRIMARY_WEBHOOK_URL
+    ]
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
+    async with httpx.AsyncClient(timeout=6.0) as client:
         files = {"file": (file.filename, contents, file.content_type or "application/pdf")}
         for target_url in urls_to_try:
             try:

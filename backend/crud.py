@@ -1,4 +1,4 @@
-import re
+import re, random, time
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import models, schemas
@@ -33,7 +33,7 @@ def get_invoice_by_number_and_vendor(db: Session, invoice_number: str, vendor_na
 def create_invoice(db: Session, payload: dict):
     # Extract fields with fallback alias support
     vendor = payload.get("vendor_name") or payload.get("vendor") or payload.get("vendorName") or "Unknown Vendor"
-    inv_num = payload.get("invoice_number") or payload.get("invoiceNumber") or payload.get("id") or f"INV-{int(func.now())}"
+    inv_num = payload.get("invoice_number") or payload.get("invoiceNumber") or payload.get("id") or f"INV-{random.randint(1000, 9999)}"
     inv_date = payload.get("invoice_date") or payload.get("date") or payload.get("invoiceDate")
     gst = payload.get("gst_number") or payload.get("gst") or payload.get("gstNumber")
     currency = payload.get("currency") or "USD"
