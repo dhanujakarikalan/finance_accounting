@@ -7,7 +7,7 @@ from database import get_db
 
 router = APIRouter()
 
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://api.agents.snshub.ai/webhook-test/b80bf861-476f-405f-9e85-3d7da5fda821")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://api.agents.snsihub.ai/webhook-test/b80bf861-476f-405f-9e85-3d7da5fda821")
 
 @router.post("/uploadInvoice")
 async def upload_invoice(file: UploadFile = File(...), db: Session = Depends(get_db)):
