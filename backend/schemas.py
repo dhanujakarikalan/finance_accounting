@@ -67,6 +67,14 @@ class ReconciliationResponse(BaseModel):
     approved: bool
     reason: str
 
+class CheckDuplicateRequest(BaseModel):
+    invoice_number: str = Field(..., example="INV-2024-001")
+
+class CheckDuplicateResponse(BaseModel):
+    duplicate: bool
+    invoice_id: Optional[int] = None
+    message: str
+
 class ChatRequest(BaseModel):
     question: str
 

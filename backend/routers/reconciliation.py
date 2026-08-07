@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
-from typing import Dict, Any
-import crud
+from typing import Dict, Any, Optional
+import crud, models, schemas
 from database import get_db
 
 router = APIRouter()
@@ -27,3 +27,24 @@ async def reconcile_invoice(payload: Dict[str, Any] = Body(...), db: Session = D
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Reconciliation error: {str(e)}")
+
+@router.post("/checkDuplicate", response_model=schemas.CheckDuplicateResponse)
+async def check_duplicate(payload: schemas.CheckDuplicateRequest, db: Session = Depends(get_db)):
+    try:
+        inv_number = payload.invoice_number
+        existing_invoice = db.query(models.Invoice).filter(models.Invoice.invoice_number == inv_number).first()
+
+        if existing_invoice:
+            return {
+                "duplicate": True,
+                "invoice_id": existing_invoice.id,
+                "message": "Duplicate invoice found"
+            }
+
+        return {
+            "duplicate": False,
+            "invoice_id": None,
+            "message": "Invoice is unique"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error while checking duplicate: {str(e)}")

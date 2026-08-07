@@ -22,6 +22,11 @@ def get_invoices(db: Session):
 def get_invoice_by_id(db: Session, invoice_id: int):
     return db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
 
+def get_invoice_by_number(db: Session, invoice_number: str):
+    if not invoice_number:
+        return None
+    return db.query(models.Invoice).filter(models.Invoice.invoice_number == invoice_number).first()
+
 def get_invoice_by_number_and_vendor(db: Session, invoice_number: str, vendor_name: str):
     if not invoice_number:
         return None
