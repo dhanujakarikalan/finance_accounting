@@ -30,7 +30,7 @@
       }
     },
     {
-      "id": "extract-from-file.extract-from-pdf-1785991315192",
+      "id": "llm-agent-execute-1785407477511",
       "type": "action",
       "width": 220,
       "height": 93,
@@ -39,30 +39,14 @@
         "y": -1290.861
       },
       "data": {
-        "label": "Extract From PDF",
-        "toolId": "extract-from-file.extract-from-pdf",
-        "inputs": {
-          "pdfData": "={{$json.file}}"
-        }
-      }
-    },
-    {
-      "id": "llm-agent-execute-1785407477511",
-      "type": "action",
-      "width": 220,
-      "height": 93,
-      "position": {
-        "x": -1.48,
-        "y": -1292.067
-      },
-      "data": {
         "label": "LLM Node",
         "toolId": "llm-agent-execute",
         "inputs": {
           "provider": "gemini",
           "model": "gemini-2.5-flash",
           "promptSource": "define",
-          "question": "Extract invoice details from document:\n- Invoice Number\n- Vendor Name\n- Invoice Date\n- Due Date\n- Currency\n- GST\n- Total Amount\n- Payment Status\n\nReturn ONLY valid JSON format.\n\nDocument:\n{{$json.text || $json.TEXT}}"
+          "file": "={{$json.file || $json.body || $json}}",
+          "question": "Extract invoice details from document:\n- Invoice Number\n- Vendor Name\n- Invoice Date\n- Due Date\n- Currency\n- GST\n- Total Amount\n- Payment Status\n\nReturn ONLY valid JSON format."
         }
       }
     },
