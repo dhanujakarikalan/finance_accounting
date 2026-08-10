@@ -7,8 +7,8 @@ from database import get_db
 
 router = APIRouter()
 
-PRIMARY_WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://api.agents.snsihub.ai/webhook-test/b80bf861-476f-405f-9e85-3d7da5fda821")
-TEST_WEBHOOK_URL = "https://api.agents.snsihub.ai/webhook/b80bf861-476f-405f-9e85-3d7da5fda821"
+PRIMARY_WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://api.agents.snsihub.ai/webhook/2b743a20-6e88-4b03-af82-c54c2ff1d2eb")
+TEST_WEBHOOK_URL = "https://api.agents.snsihub.ai/webhook-test/2b743a20-6e88-4b03-af82-c54c2ff1d2eb"
 
 @router.post("/uploadInvoice")
 async def upload_invoice(file: UploadFile = File(...), db: Session = Depends(get_db)):
@@ -17,8 +17,8 @@ async def upload_invoice(file: UploadFile = File(...), db: Session = Depends(get
 
     # Try test webhook URL first (matching active draft builder), then production webhook URL
     urls_to_try = [
-        "https://api.agents.snsihub.ai/webhook-test/b80bf861-476f-405f-9e85-3d7da5fda821",
-        "https://api.agents.snsihub.ai/webhook/b80bf861-476f-405f-9e85-3d7da5fda821",
+        "https://api.agents.snsihub.ai/webhook-test/2b743a20-6e88-4b03-af82-c54c2ff1d2eb",
+        "https://api.agents.snsihub.ai/webhook/2b743a20-6e88-4b03-af82-c54c2ff1d2eb",
         PRIMARY_WEBHOOK_URL
     ]
 
