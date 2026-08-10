@@ -35,18 +35,17 @@
       "width": 220,
       "height": 93,
       "position": {
-        "x": -338.446,
-        "y": -1290.861
+        "x": -1.48,
+        "y": -1292.067
       },
       "data": {
         "label": "LLM Node",
         "toolId": "llm-agent-execute",
         "inputs": {
-          "provider": "gemini",
-          "model": "gemini-2.5-flash",
+          "provider": "groq",
+          "model": "allam-2-7b",
           "promptSource": "define",
-          "file": "={{$json.file || $json.body || $json}}",
-          "question": "Extract invoice details from document:\n- Invoice Number\n- Vendor Name\n- Invoice Date\n- Due Date\n- Currency\n- GST\n- Total Amount\n- Payment Status\n\nReturn ONLY valid JSON format."
+          "question": "Extract invoice details from document:\n- Invoice Number\n- Vendor Name\n- Invoice Date\n- Due Date\n- Currency\n- GST\n- Total Amount\n- Payment Status\n\nReturn ONLY valid JSON format.\n\nDocument Text:\n{{$json.text || $json.TEXT || JSON.stringify($json)}}"
         }
       }
     },
