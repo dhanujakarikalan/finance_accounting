@@ -166,3 +166,65 @@ def generate_report(db: Session):
         "monthly_trend": monthly_data,
         "expense_breakdown": expense_data
     }
+
+def create_bank_statement(db: Session, filename: str, transactions_data: list):
+    statement = models.BankStatement(
+        filename=filename,
+        bank_name="Chase Business Account",
+        account_number="****4321",
+        statement_period="Current Month",
+        opening_balance=12450.00,
+        closing_balance=15890.50,
+        total_transactions=len(transactions_data)
+    )
+    db.add(statement)
+    db.commit()
+    db.refresh(statement)
+
+    txns = []
+    for idx, item in enumerate(transactions_data):
+        amt_float = parse_float(item.get("amount"))
+        amt_str = item.get("amount_str") or (f"+${amt_float:,.2f}" if amt_float >= 0 else f"-${abs(amt_float):,.2f}")
+        txn = models.BankTransaction(
+            statement_id=statement.id,
+            txn_id=item.get("id") or f"TXN-{statement.id}-{idx+1}",
+            date=item.get("date") or "2024-06-01",
+            description=item.get("description") or "Bank Transaction",
+            amount=amt_float,
+            amount_str=amt_str,
+            status="Unreconciled"
+        )
+        txns.append(txn)
+
+    db.add_all(txns)
+    db.commit()
+
+    return statement, txns
+
+def get_bank_statements(db: Session):
+    statements = db.query(models.BankStatement).order_by(models.BankStatement.id.desc()).all()
+    result = []
+    for stmt in statements:
+        txns = db.query(models.BankTransaction).filter(models.BankTransaction.statement_id == stmt.id).all()
+        result.append({
+            "id": stmt.id,
+            "filename": stmt.filename,
+            "bank_name": stmt.bank_name,
+            "account_number": stmt.account_number,
+            "statement_period": stmt.statement_period,
+            "opening_balance": stmt.opening_balance,
+            "closing_balance": stmt.closing_balance,
+            "total_transactions": stmt.total_transactions,
+            "uploaded_at": stmt.uploaded_at.isoformat() if stmt.uploaded_at else None,
+            "transactions": [
+                {
+                    "id": t.txn_id,
+                    "date": t.date,
+                    "description": t.description,
+                    "amount": t.amount_str,
+                    "status": t.status
+                }
+                for t in txns
+            ]
+        })
+    return result

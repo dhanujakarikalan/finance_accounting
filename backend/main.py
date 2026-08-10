@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import models
 from database import engine, SessionLocal
-from routers import invoice, reconciliation, chatbot, report
+from routers import invoice, reconciliation, chatbot, report, bank_statement
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -100,6 +100,7 @@ seed_initial_data()
 # Include Routers
 app.include_router(invoice.router, tags=["Invoices"])
 app.include_router(reconciliation.router, tags=["Reconciliation"])
+app.include_router(bank_statement.router, tags=["Bank Statements"])
 app.include_router(chatbot.router, tags=["Chatbot"])
 app.include_router(report.router, tags=["Reports"])
 

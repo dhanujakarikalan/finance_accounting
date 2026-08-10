@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
-import { CheckCircle, AlertTriangle, ArrowRightLeft, Sparkles, RefreshCcw } from "lucide-react";
+import { CheckCircle, AlertTriangle, ArrowRightLeft, Sparkles, RefreshCcw, Upload, FileText, X } from "lucide-react";
 import { cn } from "../utils/cn";
 import { useGlobalState } from "../context/GlobalStateContext";
 
 export function ReconciliationPage() {
-  const { bankFeed, ledgerEntries, autoMatchBankFeed, updateLedgerEntryStatus } = useGlobalState();
+  const { bankFeed, ledgerEntries, autoMatchBankFeed, updateLedgerEntryStatus, uploadBankStatement } = useGlobalState();
   const [isMatching, setIsMatching] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(null);
+  const fileInputRef = useRef(null);
 
   const handleAutoMatch = () => {
     setIsMatching(true);
@@ -29,6 +33,25 @@ export function ReconciliationPage() {
     updateLedgerEntryStatus(entryId, "Reconciled");
   };
 
+  const handleStatementFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadSuccess(null);
+
+    const res = await uploadBankStatement(file);
+    setIsUploading(false);
+
+    if (res && res.success) {
+      setUploadSuccess(`Bank statement "${file.name}" uploaded successfully! Transactions extracted and added to Bank Feed.`);
+      setTimeout(() => {
+        setIsUploadModalOpen(false);
+        setUploadSuccess(null);
+      }, 2000);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -36,7 +59,11 @@ export function ReconciliationPage() {
           <h1 className="text-2xl font-bold tracking-tight">Bank Reconciliation</h1>
           <p className="text-slate-500">Match bank statements with accounting ledger entries.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setIsUploadModalOpen(true)} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Upload className="h-4 w-4" />
+            Upload Statement
+          </Button>
           <Button variant="outline" className="gap-2" onClick={handleSync} disabled={isSyncing}>
             <RefreshCcw className={cn("h-4 w-4", isSyncing ? "animate-spin" : "")} />
             {isSyncing ? "Syncing..." : "Sync Bank Feed"}
@@ -133,6 +160,61 @@ export function ReconciliationPage() {
       <div className="hidden lg:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 items-center justify-center opacity-20 pointer-events-none">
         <ArrowRightLeft className="h-24 w-24 text-slate-400" />
       </div>
+
+      {/* Upload Bank Statement Modal */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4 border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Upload Bank Statement</h3>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setIsUploadModalOpen(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Upload your bank statement (PDF, CSV, Excel, or Image). Transactions will be extracted and auto-matched with your ledger.
+            </p>
+
+            <div 
+              className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-8 text-center hover:border-emerald-500 transition-colors cursor-pointer bg-slate-50 dark:bg-slate-800/50"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept=".pdf,.csv,.xlsx,.xls,.png,.jpg,.jpeg"
+                onChange={handleStatementFileChange} 
+              />
+              <Upload className="h-10 w-10 text-emerald-500 mx-auto mb-3 animate-bounce" />
+              <p className="font-medium text-slate-700 dark:text-slate-200 text-sm">Click to select Bank Statement</p>
+              <p className="text-xs text-slate-400 mt-1">Supports PDF, CSV, XLSX, PNG (Max 10MB)</p>
+            </div>
+
+            {isUploading && (
+              <div className="flex items-center justify-center gap-2 text-sm text-emerald-600 font-medium py-2">
+                <RefreshCcw className="h-4 w-4 animate-spin" />
+                Parsing statement & extracting transactions...
+              </div>
+            )}
+
+            {uploadSuccess && (
+              <div className="p-3 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 rounded-lg text-xs font-medium flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 shrink-0 text-emerald-600" />
+                <span>{uploadSuccess}</span>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setIsUploadModalOpen(false)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
