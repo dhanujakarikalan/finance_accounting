@@ -62,7 +62,8 @@
           "provider": "gemini",
           "model": "gemini-2.5-flash",
           "promptSource": "define",
-          "question": "Extract invoice details from document:\n- Invoice Number\n- Vendor Name\n- Invoice Date\n- Due Date\n- Currency\n- GST\n- Total Amount\n- Payment Status\n\nReturn ONLY valid JSON format.\n\nDocument:\n{{$json.text}}"
+          "file": "={{$json.file}}",
+          "question": "Extract invoice details from document:\n- Invoice Number\n- Vendor Name\n- Invoice Date\n- Due Date\n- Currency\n- GST\n- Total Amount\n- Payment Status\n\nReturn ONLY valid JSON format."
         }
       }
     },
@@ -247,15 +248,9 @@
   ],
   "edges": [
     {
-      "id": "e-webhook-pdf",
+      "id": "e-webhook-llm",
       "type": "custom",
       "source": "webhook-1785555663167",
-      "target": "extract-from-file.extract-from-pdf-1785991315192"
-    },
-    {
-      "id": "e-pdf-llm",
-      "type": "custom",
-      "source": "extract-from-file.extract-from-pdf-1785991315192",
       "target": "llm-agent-execute-1785407477511"
     },
     {
