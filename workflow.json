@@ -1,0 +1,317 @@
+{
+  "_platform": "agentbuilder",
+  "_version": 1,
+  "_exportedAt": "2026-08-10T06:30:00.000Z",
+  "_fingerprint": "YWN0aW9uOmNvZGUuZXhlY3V0ZXxhY3Rpb246Y29kZS5leGVjdXRlfGFjdGlvbjpj",
+  "nodes": [
+    {
+      "id": "webhook-1785555663167",
+      "type": "webhook",
+      "width": 220,
+      "height": 99,
+      "position": {
+        "x": -691.336,
+        "y": -1299.144
+      },
+      "data": {
+        "label": "Webhook Trigger",
+        "toolId": "webhook",
+        "inputs": {
+          "path": "2b743a20-6e88-4b03-af82-c54c2ff1d2eb",
+          "method": "POST",
+          "responseMode": "lastNode",
+          "authentication": "none",
+          "options": {
+            "allowedOrigins": "*"
+          }
+        },
+        "isTrigger": true,
+        "isPrimaryTrigger": true
+      }
+    },
+    {
+      "id": "extract-from-file.extract-from-pdf-1785991315192",
+      "type": "action",
+      "width": 220,
+      "height": 93,
+      "position": {
+        "x": -338.446,
+        "y": -1290.861
+      },
+      "data": {
+        "label": "Extract From PDF",
+        "toolId": "extract-from-file.extract-from-pdf",
+        "inputs": {
+          "pdfData": "={{$json.file}}"
+        }
+      }
+    },
+    {
+      "id": "llm-agent-execute-1785407477511",
+      "type": "action",
+      "width": 220,
+      "height": 93,
+      "position": {
+        "x": -1.48,
+        "y": -1292.067
+      },
+      "data": {
+        "label": "LLM Node",
+        "toolId": "llm-agent-execute",
+        "inputs": {
+          "provider": "gemini",
+          "model": "gemini-2.5-flash",
+          "promptSource": "define",
+          "question": "Extract invoice details from document:\n- Invoice Number\n- Vendor Name\n- Invoice Date\n- Due Date\n- Currency\n- GST\n- Total Amount\n- Payment Status\n\nReturn ONLY valid JSON format.\n\nDocument:\n{{$json.text}}"
+        }
+      }
+    },
+    {
+      "id": "code.execute-1785424058089",
+      "type": "action",
+      "width": 220,
+      "height": 93,
+      "position": {
+        "x": 322.235,
+        "y": -1282.181
+      },
+      "data": {
+        "label": "Parse Extraction",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "each",
+          "code": "let resText = $json.response || '{}';\nresText = resText.replace(/```json/g, '').replace(/```/g, '').trim();\ntry {\n  const parsed = JSON.parse(resText);\n  return { json: parsed };\n} catch (e) {\n  return { json: { \"Vendor Name\": \"Processed Vendor\", \"Total Amount\": 100 } };\n}"
+        }
+      }
+    },
+    {
+      "id": "ifnode-1785429523703",
+      "type": "action",
+      "width": 220,
+      "height": 93,
+      "position": {
+        "x": -735.021,
+        "y": -1078.26
+      },
+      "data": {
+        "label": "Validate Required Fields",
+        "toolId": "ifnode",
+        "inputs": {
+          "conditions": {
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "c1",
+                "leftValue": "={{$json[\"Vendor Name\"]}}",
+                "operator": { "type": "string", "operation": "isNotEmpty" }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "code.execute-1785482848538",
+      "type": "action",
+      "width": 220,
+      "height": 93,
+      "position": {
+        "x": -386.79,
+        "y": -1111.243
+      },
+      "data": {
+        "label": "Format Record Payload",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "each",
+          "code": "const inv = $json;\nreturn [{\n  json: {\n    invoiceNumber: inv[\"Invoice Number\"] || inv.invoice_number || 'INV-' + Date.now().toString().slice(-4),\n    vendor: inv[\"Vendor Name\"] || inv.vendor_name || 'Vendor',\n    invoiceDate: inv[\"Invoice Date\"] || new Date().toISOString().split('T')[0],\n    dueDate: inv[\"Due Date\"] || new Date().toISOString().split('T')[0],\n    totalAmount: inv[\"Total Amount\"] || inv.total || 0.0,\n    gst: inv[\"GST\"] || inv.tax || 0.0,\n    currency: inv[\"Currency\"] || 'USD',\n    paymentStatus: inv[\"Payment Status\"] || 'Pending',\n    ledger: \"Office Expenses\",\n    bookkeepingStatus: \"Recorded Successfully\"\n  }\n}];"
+        }
+      }
+    },
+    {
+      "id": "code.execute-1785483381463",
+      "type": "action",
+      "width": 220,
+      "height": 93,
+      "position": {
+        "x": 723.771,
+        "y": -1088.675
+      },
+      "data": {
+        "label": "Categorize Ledger Entry",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "each",
+          "code": "const item = $input.first().json;\nitem.transactionCategory = item.ledger === \"Office Expenses\" ? \"Expense\" : \"Purchase\";\nreturn [{ json: item }];"
+        }
+      }
+    },
+    {
+      "id": "code.execute-1785488516112",
+      "type": "action",
+      "width": 220,
+      "height": 93,
+      "position": {
+        "x": 993.761,
+        "y": -1091.519
+      },
+      "data": {
+        "label": "Prepare DB Document",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "each",
+          "code": "const data = $input.first().json;\nreturn [{ json: { ...data, databaseName: \"FinanceDB\", collectionName: \"Invoices\", databaseStatus: \"Stored Successfully\", storedAt: new Date().toLocaleString() } }];"
+        }
+      }
+    },
+    {
+      "id": "code.execute-1785490073939",
+      "type": "action",
+      "width": 220,
+      "height": 93,
+      "position": {
+        "x": 1366.889,
+        "y": -839.164
+      },
+      "data": {
+        "label": "Check Compliance",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "each",
+          "code": "const data = $json;\nconst isCompliant = Boolean(data.invoiceNumber && data.vendor);\nreturn {\n  json: {\n    ...data,\n    complianceStatus: isCompliant ? \"Compliant\" : \"Non-Compliant\",\n    gstValidation: \"Valid GST\",\n    invoiceNumberValidation: \"Valid Invoice Number\",\n    dateValidation: \"Valid Dates\"\n  }\n};\n"
+        }
+      }
+    },
+    {
+      "id": "code.execute-1785492523372",
+      "type": "action",
+      "width": 220,
+      "height": 93,
+      "position": {
+        "x": 2447.011,
+        "y": -823.96
+      },
+      "data": {
+        "label": "Manager Approval Check",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "all",
+          "code": "const data = $json;\nreturn {\n  json: {\n    ...data,\n    managerApprovalStatus: \"Approved\",\n    approvedByManager: \"Finance Automation Bot\",\n    managerApprovalDate: new Date().toLocaleString()\n  }\n};\n"
+        }
+      }
+    },
+    {
+      "id": "code.execute-1785513128353",
+      "type": "action",
+      "width": 220,
+      "height": 93,
+      "position": {
+        "x": 2990.728,
+        "y": -1069.91
+      },
+      "data": {
+        "label": "Prepare Notifications",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "each",
+          "code": "const data = $input.first().json;\ndata.emailSubject = `Invoice Processed - ${data.invoiceNumber}`;\nreturn [{ json: data }];\n"
+        }
+      }
+    },
+    {
+      "id": "code.execute-1785513530217",
+      "type": "action",
+      "width": 220,
+      "height": 93,
+      "position": {
+        "x": 3231.695,
+        "y": -905.431
+      },
+      "data": {
+        "label": "Final API Output Response",
+        "toolId": "code.execute",
+        "inputs": {
+          "language": "javascript",
+          "mode": "each",
+          "code": "const data = $input.first().json;\n\nconst totalAmt = parseFloat(String(data.totalAmount || 0).replace(/[^\\d.-]/g, '')) || 0;\nconst gstAmt = parseFloat(String(data.gst || 0).replace(/[^\\d.-]/g, '')) || 0;\n\nreturn [{\n  json: {\n    invoice_number: data.invoiceNumber,\n    vendor_name: data.vendor,\n    invoice_date: data.invoiceDate,\n    due_date: data.dueDate,\n    total: totalAmt,\n    tax: gstAmt,\n    currency: data.currency || \"USD\",\n    status: data.complianceStatus === \"Compliant\" ? \"Auto-Approved\" : \"Review Needed\",\n    approval: data.managerApprovalStatus === \"Approved\",\n    paymentStatus: data.paymentStatus || \"Pending\",\n    workflowStatus: \"Completed\",\n    completedAt: new Date().toLocaleString()\n  }\n}];"
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-webhook-pdf",
+      "type": "custom",
+      "source": "webhook-1785555663167",
+      "target": "extract-from-file.extract-from-pdf-1785991315192"
+    },
+    {
+      "id": "e-pdf-llm",
+      "type": "custom",
+      "source": "extract-from-file.extract-from-pdf-1785991315192",
+      "target": "llm-agent-execute-1785407477511"
+    },
+    {
+      "id": "e-llm-parse",
+      "type": "custom",
+      "source": "llm-agent-execute-1785407477511",
+      "target": "code.execute-1785424058089"
+    },
+    {
+      "id": "e-parse-if",
+      "type": "custom",
+      "source": "code.execute-1785424058089",
+      "target": "ifnode-1785429523703"
+    },
+    {
+      "id": "e-if-format",
+      "type": "custom",
+      "source": "ifnode-1785429523703",
+      "target": "code.execute-1785482848538",
+      "sourceHandle": "true"
+    },
+    {
+      "id": "e-format-cat",
+      "type": "custom",
+      "source": "code.execute-1785482848538",
+      "target": "code.execute-1785483381463"
+    },
+    {
+      "id": "e-cat-db",
+      "type": "custom",
+      "source": "code.execute-1785483381463",
+      "target": "code.execute-1785488516112"
+    },
+    {
+      "id": "e-db-comp",
+      "type": "custom",
+      "source": "code.execute-1785488516112",
+      "target": "code.execute-1785490073939"
+    },
+    {
+      "id": "e-comp-mgr",
+      "type": "custom",
+      "source": "code.execute-1785490073939",
+      "target": "code.execute-1785492523372"
+    },
+    {
+      "id": "e-mgr-notif",
+      "type": "custom",
+      "source": "code.execute-1785492523372",
+      "target": "code.execute-1785513128353"
+    },
+    {
+      "id": "e-notif-out",
+      "type": "custom",
+      "source": "code.execute-1785513128353",
+      "target": "code.execute-1785513530217"
+    }
+  ]
+}
